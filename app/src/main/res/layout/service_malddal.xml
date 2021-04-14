@@ -2,8 +2,8 @@
 <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
     android:background="@drawable/rounded_background">
 
     <TextView
@@ -146,6 +146,16 @@
         android:text="끌어서 이동"
         app:layout_constraintTop_toBottomOf="@id/spec5"
         app:layout_constraintLeft_toRightOf="@id/search_button"
+        app:layout_constraintRight_toLeftOf="@+id/return_button"
+        app:layout_constraintBottom_toBottomOf="parent"/>
+
+    <Button
+        android:id="@+id/return_button"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="더블탭 복귀"
+        app:layout_constraintTop_toBottomOf="@id/spec5"
+        app:layout_constraintLeft_toRightOf="@id/move_button"
         app:layout_constraintBottom_toBottomOf="parent"/>
 
 

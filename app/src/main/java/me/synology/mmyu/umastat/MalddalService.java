@@ -3,6 +3,7 @@ package me.synology.mmyu.umastat;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
@@ -14,12 +15,14 @@ import android.graphics.Point;
 import android.hardware.display.DisplayManager;
 import android.media.Image;
 import android.media.ImageReader;
+import android.media.ToneGenerator;
 import android.media.projection.MediaProjection;
 import android.media.projection.MediaProjectionManager;
 import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
 import android.util.DisplayMetrics;
+import android.util.Log;
 import android.view.Display;
 import android.view.Gravity;
 import android.view.LayoutInflater;
@@ -67,12 +70,15 @@ public class MalddalService extends Service {
     static final String EXTRA_RESULT_CODE = "resultCode";
     static final String EXTRA_RESULT_INTENT = "resultIntent";
     static final String EXTRA_IN_KOREAN = "inKorean";
+    static final String EXTRA_PARENT_INTENT = "parentIntent";
     private int resultCode;
     private Intent resultData;
     private boolean inKorean;
+    private Intent parentIntent;
 
     Button search_button = null;
     Button move_service_button = null;
+    Button return_service_button = null;
     ArrayList<TextView> scripts = null;
     ArrayList<TextView> specs = null;
     boolean event_visibility = false;
@@ -80,6 +86,9 @@ public class MalddalService extends Service {
     private static final String CHANNEL_MALDDAL = "channel_malddal";
     private static final int NOTIFY_ID = 9999;
 
+    long button_click_int = 0;
+
+    static final String ACTION_SHUTDOWN=BuildConfig.APPLICATION_ID+".SHUTDOWN";
 
 
 
@@ -171,14 +180,28 @@ public class MalddalService extends Service {
             @Override
             public boolean onTouch(View v, MotionEvent event) {
                 if (event.getAction() == MotionEvent.ACTION_MOVE){
-                    Point point = getPointOfView(move_service_button);
-                    params.x = (int) event.getRawX() - point.x;
-                    params.y = (int) event.getRawY() - point.y;
+
+                    Point point = getPointOfView(view);
+                    params.x = (int) event.getRawX() - view.getWidth()/2;
+                    params.y = (int) event.getRawY() - view.getHeight()/2;
                     windowManager.updateViewLayout(view, params);
                 }
                 return false;
             }
         });
+        return_service_button = view.findViewById(R.id.return_button);
+        return_service_button.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (System.currentTimeMillis() > button_click_int + 500) {
+                    button_click_int = System.currentTimeMillis();
+                    return;
+                } else if (System.currentTimeMillis() <= button_click_int + 500) {
+                    startActivity(parentIntent);
+                }
+            }
+        });
+
     }
 
     @Override
@@ -195,13 +218,15 @@ public class MalddalService extends Service {
             resultCode = intent.getIntExtra(EXTRA_RESULT_CODE, 1337);
             resultData = intent.getParcelableExtra(EXTRA_RESULT_INTENT);
             inKorean = intent.getBooleanExtra(EXTRA_IN_KOREAN, false);
+            parentIntent = intent.getParcelableExtra(EXTRA_PARENT_INTENT);
 
             String dir = getFilesDir() + "/malddal";
-            if(checkLanguageFile(dir + "/tessdata"))
+            if(checkLanguageFile(dir + "/tessdata")) {
                 tessBaseAPI.init(dir, "jpn");
-            Toast.makeText(this, "TESS DATA READ COMPLETED", Toast.LENGTH_LONG).show();
+                // Toast.makeText(this, "TESS DATA READ COMPLETED", Toast.LENGTH_LONG).show();
+            }
             if(checkXLSFile(dir + "/xls")) {
-                Toast.makeText(this, "XLS DATA READ COMPLETED", Toast.LENGTH_LONG).show();
+                // Toast.makeText(this, "XLS DATA READ COMPLETED", Toast.LENGTH_LONG).show();
             }
 
             NotificationManager notificationManager =
@@ -215,10 +240,16 @@ public class MalddalService extends Service {
             NotificationCompat.Builder b = new NotificationCompat.Builder(this, CHANNEL_MALDDAL);
             b.setAutoCancel(true)
                     .setDefaults(Notification.DEFAULT_ALL);
-            b.setContentTitle("malddal")
+            b.setContentTitle(getString(R.string.service_running))
                     .setSmallIcon(R.mipmap.ic_launcher)
-                    .setTicker("malddal");
+                    .setTicker(getString(R.string.service_running));
+            b.addAction(R.drawable.ic_eject_white_24dp,
+                    getString(R.string.notify_shutdown),
+                    buildPendingIntent(ACTION_SHUTDOWN));
             startForeground(NOTIFY_ID, b.build());
+        } else if (ACTION_SHUTDOWN.equals(intent.getAction())) {
+            stopForeground(true);
+            stopSelf();
         }
         return(START_NOT_STICKY);
     }
@@ -463,12 +494,16 @@ public class MalddalService extends Service {
                             found = true;
                             break;
                         }
-
                     }
                 }
                 ArrayList<String> scriptForPrint = new ArrayList<String>();
                 ArrayList<String> specsForPrint = new ArrayList<String>();
                 if (found) {
+                    if (iter2.get(index) != 1) {
+                        while(iter2.get(index) != 1) {
+                            index = index - 1;
+                        }
+                    }
                     scriptForPrint.add(scriptdata.get(index));
                     specsForPrint.add(specdata.get(index));
                     index = index + 1;
@@ -523,5 +558,11 @@ public class MalddalService extends Service {
         }
         return array.get(aLen - 1).get(bLen - 1);
     }
+    private PendingIntent buildPendingIntent(String action) {
+        Intent i=new Intent(this, getClass());
 
+        i.setAction(action);
+
+        return(PendingIntent.getService(this, 0, i, 0));
+    }
 }

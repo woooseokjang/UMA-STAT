@@ -88,7 +88,8 @@ public class MainActivity extends AppCompatActivity {
                     intent = new Intent(this, MalddalService.class)
                             .putExtra(MalddalService.EXTRA_RESULT_CODE, resultCode)
                             .putExtra(MalddalService.EXTRA_RESULT_INTENT, data)
-                            .putExtra(MalddalService.EXTRA_IN_KOREAN, inKorean);
+                            .putExtra(MalddalService.EXTRA_IN_KOREAN, inKorean)
+                            .putExtra(MalddalService.EXTRA_PARENT_INTENT, getIntent());
                     startService(intent);
                 }
         }
