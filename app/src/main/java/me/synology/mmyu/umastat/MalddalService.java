@@ -8,14 +8,13 @@ import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
 import android.content.res.AssetManager;
+import android.content.res.Configuration;
 import android.graphics.Bitmap;
-import android.graphics.Canvas;
 import android.graphics.PixelFormat;
 import android.graphics.Point;
 import android.hardware.display.DisplayManager;
 import android.media.Image;
 import android.media.ImageReader;
-import android.media.ToneGenerator;
 import android.media.projection.MediaProjection;
 import android.media.projection.MediaProjectionManager;
 import android.os.Build;
@@ -28,8 +27,11 @@ import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.WindowManager;
+import android.widget.BaseAdapter;
 import android.widget.Button;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -47,7 +49,6 @@ import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 
 import jxl.Sheet;
 import jxl.Workbook;
@@ -62,10 +63,14 @@ public class MalddalService extends Service {
     ArrayList<String> specdata;
     ArrayList<Integer> iter1;
     ArrayList<Integer> iter2;
+    ArrayList<SkillAndSpecs> skillAndSpecs;
+    ArrayList<String> skill_name;
+    ArrayList<String> skill_info;
     MediaProjection mediaProjection;
     MediaProjectionManager mediaProjectionManager;
     WindowManager windowManager;
     View view;
+    Configuration configuration;
 
     static final String EXTRA_RESULT_CODE = "resultCode";
     static final String EXTRA_RESULT_INTENT = "resultIntent";
@@ -82,6 +87,7 @@ public class MalddalService extends Service {
     ArrayList<TextView> scripts = null;
     ArrayList<TextView> specs = null;
     boolean event_visibility = false;
+    ProgressBar event_loading = null;
 
     private static final String CHANNEL_MALDDAL = "channel_malddal";
     private static final int NOTIFY_ID = 9999;
@@ -104,6 +110,7 @@ public class MalddalService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
+        configuration = getResources().getConfiguration();
         mediaProjectionManager = (MediaProjectionManager) getSystemService(MEDIA_PROJECTION_SERVICE);
         windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
         tessBaseAPI = new TessBaseAPI();
@@ -111,7 +118,6 @@ public class MalddalService extends Service {
 
         LayoutInflater layoutInflater = (LayoutInflater) getSystemService(Context.LAYOUT_INFLATER_SERVICE);
         view = layoutInflater.inflate(R.layout.service_malddal, null);
-
         WindowManager.LayoutParams params = new WindowManager.LayoutParams(
                 WindowManager.LayoutParams.WRAP_CONTENT,
                 WindowManager.LayoutParams.WRAP_CONTENT,
@@ -135,18 +141,17 @@ public class MalddalService extends Service {
         specs.add(view.findViewById(R.id.spec4));
         specs.add(view.findViewById(R.id.spec5));
 
-
         for(int i = 0; i < 5; i++) {
-            scripts.get(i).setOnTouchListener(new View.OnTouchListener(){
+            specs.get(i).setOnClickListener(new specsListOnClickListener(specs.get(i)) {
                 @Override
-                public boolean onTouch(View v, MotionEvent event) {
-                    return true;
-                }
-            });
-            specs.get(i).setOnTouchListener(new View.OnTouchListener(){
-                @Override
-                public boolean onTouch(View v, MotionEvent event) {
-                    return true;
+                public void onClick(View v) {
+                    String skill_in_script = this.spec.getText().toString();
+                    skill_in_script = skill_in_script.substring(skill_in_script.indexOf("『") + 1,
+                            skill_in_script.indexOf("』"));
+                    int skill_index = skill_name.indexOf(skill_in_script);
+                    Toast.makeText(getApplicationContext(),
+                            skill_in_script + " : " + skill_info.get(skill_index),
+                            Toast.LENGTH_LONG).show();
                 }
             });
         }
@@ -160,10 +165,6 @@ public class MalddalService extends Service {
                     search_button.setText("찾는중");
                     startCapture();
                     search_button.setText("숨기기");
-                    for (int i = 0; i < 5; i++) {
-                        scripts.get(i).setVisibility(View.VISIBLE);
-                        specs.get(i).setVisibility(View.VISIBLE);
-                    }
                 }
                 else {
                     event_visibility = false;
@@ -201,7 +202,9 @@ public class MalddalService extends Service {
                 }
             }
         });
+        event_loading = view.findViewById(R.id.event_loading);
 
+        setNightMode();
     }
 
     @Override
@@ -225,7 +228,9 @@ public class MalddalService extends Service {
                 tessBaseAPI.init(dir, "jpn");
                 // Toast.makeText(this, "TESS DATA READ COMPLETED", Toast.LENGTH_LONG).show();
             }
-            if(checkXLSFile(dir + "/xls")) {
+            boolean event_data_exist = checkEventDataFile(dir + "/xls");
+            boolean skill_data_exist = checkSkillDataFile(dir + "/xls");
+            if(event_data_exist && skill_data_exist) {
                 // Toast.makeText(this, "XLS DATA READ COMPLETED", Toast.LENGTH_LONG).show();
             }
 
@@ -252,6 +257,12 @@ public class MalddalService extends Service {
             stopSelf();
         }
         return(START_NOT_STICKY);
+    }
+
+    @Override
+    public void onConfigurationChanged(Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+        setNightMode();
     }
 
     private Point getPointOfView(View view) {
@@ -298,7 +309,7 @@ public class MalddalService extends Service {
         }
     }
 
-    boolean checkXLSFile(String dir){
+    boolean checkEventDataFile(String dir){
         String filePath;
         if (inKorean) {
             filePath = dir + "/character_script_spec_ko.xls";
@@ -307,18 +318,34 @@ public class MalddalService extends Service {
         }
         File file = new File(dir);
         if (!file.exists() && file.mkdir())
-            createXLSFiles(dir);
+            createEventDataFiles(dir);
         else if (file.exists()){
             File langDataFile = new File(filePath);
             if (!langDataFile.exists())
-                createXLSFiles(dir);
+                createEventDataFiles(dir);
         }
         scriptAndSpecs = new ArrayList<ScriptAndSpecs>();
-        readXLSFile(filePath);
+        readEventDataFile(filePath);
         return true;
     }
 
-    private void createXLSFiles(String dir) {
+    boolean checkSkillDataFile(String dir){
+        String filePath;
+        filePath = dir + "/skill_spec.xls";
+        File file = new File(dir);
+        if (!file.exists() && file.mkdir())
+            createSkillDataFiles(dir);
+        else if (file.exists()){
+            File langDataFile = new File(filePath);
+            if (!langDataFile.exists())
+                createSkillDataFiles(dir);
+        }
+        skillAndSpecs = new ArrayList<SkillAndSpecs>();
+        readSkillDataFile(filePath);
+        return true;
+    }
+
+    private void createEventDataFiles(String dir) {
         AssetManager assetMgr = this.getAssets();
         InputStream inputStream = null;
         OutputStream outputStream = null;
@@ -347,12 +374,28 @@ public class MalddalService extends Service {
         }
     }
 
-    public Bitmap screenShot(View view) {
-
-        Bitmap bitmap = Bitmap.createBitmap(view.getWidth(), view.getHeight(), Bitmap.Config.ARGB_8888);
-        Canvas canvas = new Canvas(bitmap);
-        view.draw(canvas);
-        return bitmap;
+    private void createSkillDataFiles(String dir) {
+        AssetManager assetMgr = this.getAssets();
+        InputStream inputStream = null;
+        OutputStream outputStream = null;
+        try{
+            String destFile;
+            inputStream = assetMgr.open("xls/skill_spec.xls");
+            destFile = dir + "/skill_spec.xls";
+            outputStream = new FileOutputStream(destFile);
+            byte[] buffer = new byte[1024];
+            int read;
+            while ((read = inputStream.read(buffer)) != -1){
+                outputStream.write(buffer, 0, read);
+            }
+            inputStream.close();
+            outputStream.flush();
+            outputStream.close();
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     public ArrayList<String> OCR(Bitmap bitmap) {
@@ -367,7 +410,7 @@ public class MalddalService extends Service {
         return result;
     }
 
-    public void readXLSFile(String dir){
+    public void readEventDataFile(String dir){
         try {
             InputStream is = new FileInputStream(new File(dir));
             Workbook wb = Workbook.getWorkbook(is);
@@ -424,7 +467,55 @@ public class MalddalService extends Service {
         }
     }
 
+    public void readSkillDataFile(String dir){
+        try {
+            InputStream is = new FileInputStream(new File(dir));
+            Workbook wb = Workbook.getWorkbook(is);
+            if(wb != null){
+                Sheet sheet = wb.getSheet(0);
+                if(sheet != null){
+                    int colTotal = sheet.getColumns();
+                    int rowIndexStart = 1;
+                    int rowTotal = sheet.getColumn(colTotal - 1).length;
+                    StringBuilder sb;
+                    for(int row = rowIndexStart; row<rowTotal; row++){
+                        if (row == 0) continue;
+                        SkillAndSpecs temp = new SkillAndSpecs();
+                        for (int col = 0; col < colTotal; col++){
+                            String contents = sheet.getCell(col, row).getContents();
+                            switch(col) {
+                                case 0:
+                                    temp.setId(Integer.parseInt(contents));
+                                    break;
+                                case 1:
+                                    temp.setSkill(contents);
+                                    break;
+                                case 2:
+                                    temp.setSkill_info(contents);
+                                    break;
+                            }
+                        }
+                        skillAndSpecs.add(temp);
+                    }
+                }
+            }
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        } catch (BiffException e) {
+            e.printStackTrace();
+        }
+        skill_name = new ArrayList<String>();
+        skill_info = new ArrayList<String>();
+        for (int i = 0; i < skillAndSpecs.size(); i++) {
+            skill_name.add(skillAndSpecs.get(i).getSkill());
+            skill_info.add(skillAndSpecs.get(i).getSkill_info());
+        }
+    }
+
     private void startCapture() {
+        event_loading.setVisibility(View.VISIBLE);
         mediaProjection = mediaProjectionManager.getMediaProjection(resultCode, resultData);
         MediaProjection.Callback cb = new MediaProjection.Callback() {
             @Override
@@ -473,57 +564,56 @@ public class MalddalService extends Service {
 
                 ArrayList<String> data = OCR(realSizeBitmap);
                 int index = 0;
-                boolean found = false;
+                int min = 99999;
                 for (int i = 0; i < data.size(); i++) {
                     if (data.get(i).length() >= 2) {
-                        String sc = data.get(i).replace("/", "!");
-                        sc = sc.replace("7", "!");
-                        ArrayList<Integer> revenList = new ArrayList<Integer>();
+                        String sc = data.get(i).replace("/", "！");
+                        sc = sc.replace("7", "！");
                         for (int j = 0; j < scriptAndSpecs.size(); j++) {
-                            int forAppend = leven(scriptdata.get(j), data.get(i));
-                            revenList.add(forAppend);
-                        }
-                        int min = Collections.min(revenList);
-                        index = 0;
-                        for (int j = 0; j < revenList.size(); j++) {
-                            if (revenList.get(j) == min){
+                            int leven_dist = leven(scriptdata.get(j), sc);
+                            if (leven_dist < min) {
                                 index = j;
+                                min = leven_dist;
+                                if (min == 0) {
+                                    break;
+                                }
                             }
                         }
-                        if (scriptdata.get(index).length() != min) {
-                            found = true;
-                            break;
-                        }
+                        Log.i("data", "data index -> " + index);
+                        Log.i("data", "reven min -> " + min);
+                        Log.i("data", sc);
                     }
                 }
                 ArrayList<String> scriptForPrint = new ArrayList<String>();
                 ArrayList<String> specsForPrint = new ArrayList<String>();
-                if (found) {
-                    if (iter2.get(index) != 1) {
-                        while(iter2.get(index) != 1) {
-                            index = index - 1;
-                        }
-                    }
+                while(iter2.get(index) != 1) {
+                    index = index - 1;
+                }
+
+                scriptForPrint.add(scriptdata.get(index));
+                specsForPrint.add(specdata.get(index));
+                index = index + 1;
+                while (iter2.get(index) != 1){
                     scriptForPrint.add(scriptdata.get(index));
                     specsForPrint.add(specdata.get(index));
                     index = index + 1;
-                    while (iter2.get(index) != 1){
-                        scriptForPrint.add(scriptdata.get(index));
-                        specsForPrint.add(specdata.get(index));
-                        index = index + 1;
-                    }
                 }
                 for(int i = 0; i < 5; i++) {
                     if (scriptForPrint.size() > i) {
+                        scripts.get(i).setVisibility(View.VISIBLE);
                         scripts.get(i).setText(scriptForPrint.get(i));
+                        specs.get(i).setVisibility(View.VISIBLE);
                         specs.get(i).setText(specsForPrint.get(i).replace("&", "\n"));
                     } else {
                         scripts.get(i).setText("N/A");
+                        scripts.get(i).setVisibility(View.GONE);
                         specs.get(i).setText("N/A");
+                        specs.get(i).setVisibility(View.GONE);
                     }
                 }
             }
         }, handler);
+        event_loading.setVisibility(View.GONE);
     }
 
     public int leven(String aText, String bText) {
@@ -564,5 +654,60 @@ public class MalddalService extends Service {
         i.setAction(action);
 
         return(PendingIntent.getService(this, 0, i, 0));
+    }
+
+    private class specsAdapter extends BaseAdapter {
+        @Override
+        public int getCount() {
+            return specs.size();
+        }
+
+        @Override
+        public Object getItem(int position) {
+            return specs.get(position);
+        }
+
+        @Override
+        public long getItemId(int position) {
+            return position;
+        }
+
+        @Override
+        public View getView(int position, View convertView, ViewGroup parent) {
+            return null;
+        }
+    }
+
+    public abstract class specsListOnClickListener implements View.OnClickListener {
+
+        protected TextView spec;
+
+        public specsListOnClickListener(TextView spec) {
+            this.spec = spec;
+        }
+    }
+
+    public void setNightMode() {
+        int currentNightMode = configuration.uiMode & Configuration.UI_MODE_NIGHT_MASK;
+        switch (currentNightMode) {
+            case Configuration.UI_MODE_NIGHT_NO:
+                view.findViewById(R.id.service_cl).setBackground(
+                        getResources().getDrawable(R.drawable.rounded_background_white,
+                                null));
+                for (int i = 0; i < 5; i++) {
+                    scripts.get(i).setTextColor(getColor(R.color.black));
+                    specs.get(i).setTextColor(getColor(R.color.black));
+                }
+                break;
+            case Configuration.UI_MODE_NIGHT_YES:
+                view.findViewById(R.id.service_cl).setBackground(
+                        getResources().getDrawable(R.drawable.rounded_background_black,
+                                null));
+                for (int i = 0; i < 5; i++) {
+                    scripts.get(i).setTextColor(getColor(R.color.white));
+                    specs.get(i).setTextColor(getColor(R.color.white));
+                }
+                break;
+        }
     }
 }
