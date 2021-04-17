@@ -149,6 +149,7 @@ public class MalddalService extends Service {
                     skill_in_script = skill_in_script.substring(skill_in_script.indexOf("『") + 1,
                             skill_in_script.indexOf("』"));
                     int skill_index = skill_name.indexOf(skill_in_script);
+                    if(skill_index == -1) return;
                     Toast.makeText(getApplicationContext(),
                             skill_in_script + " : " + skill_info.get(skill_index),
                             Toast.LENGTH_LONG).show();
@@ -223,16 +224,21 @@ public class MalddalService extends Service {
             inKorean = intent.getBooleanExtra(EXTRA_IN_KOREAN, false);
             parentIntent = intent.getParcelableExtra(EXTRA_PARENT_INTENT);
 
-            String dir = getFilesDir() + "/malddal";
+            String dir = getFilesDir() + "/umapyoi";
             if(checkLanguageFile(dir + "/tessdata")) {
                 tessBaseAPI.init(dir, "jpn");
                 // Toast.makeText(this, "TESS DATA READ COMPLETED", Toast.LENGTH_LONG).show();
             }
+            readEventDataFile(dir);
+            readSkillDataFile(dir);
+            /*
             boolean event_data_exist = checkEventDataFile(dir + "/xls");
             boolean skill_data_exist = checkSkillDataFile(dir + "/xls");
             if(event_data_exist && skill_data_exist) {
                 // Toast.makeText(this, "XLS DATA READ COMPLETED", Toast.LENGTH_LONG).show();
             }
+
+            */
 
             NotificationManager notificationManager =
                     (NotificationManager)getSystemService(NOTIFICATION_SERVICE);
@@ -309,95 +315,6 @@ public class MalddalService extends Service {
         }
     }
 
-    boolean checkEventDataFile(String dir){
-        String filePath;
-        if (inKorean) {
-            filePath = dir + "/character_script_spec_ko.xls";
-        } else {
-            filePath = dir + "/character_script_spec.xls";
-        }
-        File file = new File(dir);
-        if (!file.exists() && file.mkdir())
-            createEventDataFiles(dir);
-        else if (file.exists()){
-            File langDataFile = new File(filePath);
-            if (!langDataFile.exists())
-                createEventDataFiles(dir);
-        }
-        scriptAndSpecs = new ArrayList<ScriptAndSpecs>();
-        readEventDataFile(filePath);
-        return true;
-    }
-
-    boolean checkSkillDataFile(String dir){
-        String filePath;
-        filePath = dir + "/skill_spec.xls";
-        File file = new File(dir);
-        if (!file.exists() && file.mkdir())
-            createSkillDataFiles(dir);
-        else if (file.exists()){
-            File langDataFile = new File(filePath);
-            if (!langDataFile.exists())
-                createSkillDataFiles(dir);
-        }
-        skillAndSpecs = new ArrayList<SkillAndSpecs>();
-        readSkillDataFile(filePath);
-        return true;
-    }
-
-    private void createEventDataFiles(String dir) {
-        AssetManager assetMgr = this.getAssets();
-        InputStream inputStream = null;
-        OutputStream outputStream = null;
-        try{
-            String destFile;
-            if (inKorean) {
-                inputStream = assetMgr.open("xls/character_script_spec_ko.xls");
-                destFile = dir + "/character_script_spec_ko.xls";
-            } else {
-                inputStream = assetMgr.open("xls/character_script_spec.xls");
-                destFile = dir + "/character_script_spec.xls";
-            }
-            outputStream = new FileOutputStream(destFile);
-            byte[] buffer = new byte[1024];
-            int read;
-            while ((read = inputStream.read(buffer)) != -1){
-                outputStream.write(buffer, 0, read);
-            }
-            inputStream.close();
-            outputStream.flush();
-            outputStream.close();
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-    private void createSkillDataFiles(String dir) {
-        AssetManager assetMgr = this.getAssets();
-        InputStream inputStream = null;
-        OutputStream outputStream = null;
-        try{
-            String destFile;
-            inputStream = assetMgr.open("xls/skill_spec.xls");
-            destFile = dir + "/skill_spec.xls";
-            outputStream = new FileOutputStream(destFile);
-            byte[] buffer = new byte[1024];
-            int read;
-            while ((read = inputStream.read(buffer)) != -1){
-                outputStream.write(buffer, 0, read);
-            }
-            inputStream.close();
-            outputStream.flush();
-            outputStream.close();
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
     public ArrayList<String> OCR(Bitmap bitmap) {
         Bitmap bitmap2 = Bitmap.createBitmap(bitmap,
                 (int)(bitmap.getWidth()*0.1), (int)(bitmap.getHeight()*0.5),
@@ -411,8 +328,15 @@ public class MalddalService extends Service {
     }
 
     public void readEventDataFile(String dir){
+        scriptAndSpecs = new ArrayList<ScriptAndSpecs>();
         try {
-            InputStream is = new FileInputStream(new File(dir));
+            AssetManager assetMgr = this.getAssets();
+            InputStream is;
+            if (inKorean) {
+                is = assetMgr.open("xls/character_script_spec_ko.xls");
+            } else {
+                is = assetMgr.open("xls/character_script_spec.xls");
+            }
             Workbook wb = Workbook.getWorkbook(is);
             if(wb != null){
                 Sheet sheet = wb.getSheet(0);
@@ -468,8 +392,10 @@ public class MalddalService extends Service {
     }
 
     public void readSkillDataFile(String dir){
+        skillAndSpecs = new ArrayList<SkillAndSpecs>();
         try {
-            InputStream is = new FileInputStream(new File(dir));
+            AssetManager assetMgr = this.getAssets();
+            InputStream is = assetMgr.open("xls/skill_spec.xls");
             Workbook wb = Workbook.getWorkbook(is);
             if(wb != null){
                 Sheet sheet = wb.getSheet(0);
@@ -565,17 +491,24 @@ public class MalddalService extends Service {
                 ArrayList<String> data = OCR(realSizeBitmap);
                 int index = 0;
                 int min = 99999;
+                boolean found = false;
                 for (int i = 0; i < data.size(); i++) {
+                    if(found) break;
                     if (data.get(i).length() >= 2) {
                         String sc = data.get(i).replace("/", "！");
                         sc = sc.replace("7", "！");
                         for (int j = 0; j < scriptAndSpecs.size(); j++) {
+                            if (found) break;
                             int leven_dist = leven(scriptdata.get(j), sc);
                             if (leven_dist < min) {
-                                index = j;
-                                min = leven_dist;
-                                if (min == 0) {
-                                    break;
+                                if (leven_dist != scriptdata.get(j).length()) {
+                                    if (Math.abs(sc.length() - scriptdata.get(j).length()) <= 3) {
+                                        index = j;
+                                        min = leven_dist;
+                                        if (min == 0) {
+                                            found = true;
+                                        }
+                                    }
                                 }
                             }
                         }
