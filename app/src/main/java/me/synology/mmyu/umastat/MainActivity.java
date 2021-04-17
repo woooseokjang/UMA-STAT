@@ -109,7 +109,7 @@ public class MainActivity extends AppCompatActivity {
         super.onActivityResult(requestCode, resultCode, data);
         switch(requestCode){
             case PROJECTION_PERMISSION:
-                if (resultCode==RESULT_OK) {
+                if (resultCode == RESULT_OK) {
                     inKorean = lang_checkBox.isChecked();
                     intent = new Intent(this, MalddalService.class)
                             .putExtra(MalddalService.EXTRA_RESULT_CODE, resultCode)
@@ -118,6 +118,7 @@ public class MainActivity extends AppCompatActivity {
                             .putExtra(MalddalService.EXTRA_PARENT_INTENT, getIntent());
                     startService(intent);
                 }
+                break;
             case UPDATE_PERMISSION:
                 if (resultCode != RESULT_OK) {
                     Log.d("UPDATE", "Update flow failed! Result code: " + resultCode);
@@ -130,7 +131,7 @@ public class MainActivity extends AppCompatActivity {
                         }
                     });
                 }
-
+                break;
         }
     }
 

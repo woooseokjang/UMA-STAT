@@ -66,8 +66,8 @@ public class MalddalService extends Service {
     ArrayList<SkillAndSpecs> skillAndSpecs;
     ArrayList<String> skill_name;
     ArrayList<String> skill_info;
-    MediaProjection mediaProjection;
-    MediaProjectionManager mediaProjectionManager;
+    MediaProjection mediaProjection = null;
+    MediaProjectionManager mediaProjectionManager = null;
     WindowManager windowManager;
     View view;
     Configuration configuration;
@@ -94,7 +94,7 @@ public class MalddalService extends Service {
 
     long button_click_int = 0;
 
-    static final String ACTION_SHUTDOWN=BuildConfig.APPLICATION_ID+".SHUTDOWN";
+    static final String ACTION_SHUTDOWN = BuildConfig.APPLICATION_ID + ".SHUTDOWN";
 
 
 
@@ -111,7 +111,8 @@ public class MalddalService extends Service {
     public void onCreate() {
         super.onCreate();
         configuration = getResources().getConfiguration();
-        mediaProjectionManager = (MediaProjectionManager) getSystemService(MEDIA_PROJECTION_SERVICE);
+        if (mediaProjectionManager == null)
+            mediaProjectionManager = (MediaProjectionManager) getSystemService(MEDIA_PROJECTION_SERVICE);
         windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
         tessBaseAPI = new TessBaseAPI();
         Toast.makeText(this, "SERVICE NOW RUNNING...", Toast.LENGTH_LONG).show();
@@ -145,14 +146,18 @@ public class MalddalService extends Service {
             specs.get(i).setOnClickListener(new specsListOnClickListener(specs.get(i)) {
                 @Override
                 public void onClick(View v) {
+                    Log.i("data", "skill onClick " + this.spec.getText().toString());
                     String skill_in_script = this.spec.getText().toString();
-                    skill_in_script = skill_in_script.substring(skill_in_script.indexOf("『") + 1,
-                            skill_in_script.indexOf("』"));
-                    int skill_index = skill_name.indexOf(skill_in_script);
-                    if(skill_index == -1) return;
-                    Toast.makeText(getApplicationContext(),
-                            skill_in_script + " : " + skill_info.get(skill_index),
-                            Toast.LENGTH_LONG).show();
+                    int startIndex = skill_in_script.indexOf("『") + 1;
+                    int endIndex = skill_in_script.indexOf("』");
+                    if ((skill_in_script.indexOf("『") != -1) && (endIndex != -1)){
+                        skill_in_script = skill_in_script.substring(startIndex, endIndex);
+                        int skill_index = skill_name.indexOf(skill_in_script);
+                        if(skill_index == -1) return;
+                        Toast.makeText(getApplicationContext(),
+                                skill_in_script + " : " + skill_info.get(skill_index),
+                                Toast.LENGTH_LONG).show();
+                    }
                 }
             });
         }
@@ -226,8 +231,9 @@ public class MalddalService extends Service {
 
             String dir = getFilesDir() + "/umapyoi";
             if(checkLanguageFile(dir + "/tessdata")) {
-                tessBaseAPI.init(dir, "jpn");
-                // Toast.makeText(this, "TESS DATA READ COMPLETED", Toast.LENGTH_LONG).show();
+                if(!tessBaseAPI.init(dir, "jpn"))
+                    Log.i("data", "tessinit err");
+
             }
             readEventDataFile(dir);
             readSkillDataFile(dir);
@@ -317,8 +323,9 @@ public class MalddalService extends Service {
 
     public ArrayList<String> OCR(Bitmap bitmap) {
         Bitmap bitmap2 = Bitmap.createBitmap(bitmap,
-                (int)(bitmap.getWidth()*0.1), (int)(bitmap.getHeight()*0.5),
-                (int)(bitmap.getWidth()*0.8), (int)(bitmap.getHeight()*0.25));
+                (int)(bitmap.getWidth()*0.1), (int)(bitmap.getHeight()*0.53),
+                (int)(bitmap.getWidth()*0.8), (int)(bitmap.getHeight()*0.16));
+        //saveBitmapToJpeg(bitmap2, "test");
         tessBaseAPI.setImage(bitmap2);
         String OCRResult = tessBaseAPI.getUTF8Text();
         OCRResult = OCRResult.replaceAll(" ", "");
@@ -442,7 +449,9 @@ public class MalddalService extends Service {
 
     private void startCapture() {
         event_loading.setVisibility(View.VISIBLE);
-        mediaProjection = mediaProjectionManager.getMediaProjection(resultCode, resultData);
+        if (mediaProjection == null) {
+            mediaProjection = mediaProjectionManager.getMediaProjection(resultCode, resultData);
+        }
         MediaProjection.Callback cb = new MediaProjection.Callback() {
             @Override
             public void onStop() {
@@ -484,6 +493,8 @@ public class MalddalService extends Service {
 
                 image.close();
                 reader.close();
+                mediaProjection.stop();
+                mediaProjection = null;
 
                 Bitmap realSizeBitmap = Bitmap.createBitmap(bmp, 0, 0, metrics.widthPixels, bmp.getHeight());
                 bmp.recycle();
@@ -494,7 +505,7 @@ public class MalddalService extends Service {
                 boolean found = false;
                 for (int i = 0; i < data.size(); i++) {
                     if(found) break;
-                    if (data.get(i).length() >= 2) {
+                    if (data.get(i).length() >= 3) {
                         String sc = data.get(i).replace("/", "！");
                         sc = sc.replace("7", "！");
                         for (int j = 0; j < scriptAndSpecs.size(); j++) {
@@ -641,6 +652,39 @@ public class MalddalService extends Service {
                     specs.get(i).setTextColor(getColor(R.color.white));
                 }
                 break;
+        }
+    }
+
+    private void saveBitmapToJpeg(Bitmap bitmap, String name) {
+
+        //내부저장소 캐시 경로를 받아옵니다.
+        File storage = getCacheDir();
+        Log.i("data", getFilesDir().toString());
+
+        //저장할 파일 이름
+        String fileName = name + ".jpg";
+
+        //storage 에 파일 인스턴스를 생성합니다.
+        File tempFile = new File(storage, fileName);
+
+        try {
+
+            // 자동으로 빈 파일을 생성합니다.
+            tempFile.createNewFile();
+
+            // 파일을 쓸 수 있는 스트림을 준비합니다.
+            FileOutputStream out = new FileOutputStream(tempFile);
+
+            // compress 함수를 사용해 스트림에 비트맵을 저장합니다.
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 100, out);
+
+            // 스트림 사용후 닫아줍니다.
+            out.close();
+
+        } catch (FileNotFoundException e) {
+            Log.e("MyTag", "FileNotFoundException : " + e.getMessage());
+        } catch (IOException e) {
+            Log.e("MyTag", "IOException : " + e.getMessage());
         }
     }
 }
