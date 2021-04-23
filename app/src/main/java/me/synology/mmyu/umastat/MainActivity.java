@@ -6,6 +6,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
+import android.content.res.Configuration;
 import android.media.projection.MediaProjectionManager;
 import android.net.Uri;
 import android.os.Build;
@@ -16,6 +17,8 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.ProgressBar;
+import android.widget.RadioButton;
+import android.widget.RadioGroup;
 import android.widget.Toast;
 
 import com.google.android.play.core.appupdate.AppUpdateInfo;
@@ -30,20 +33,24 @@ public class MainActivity extends AppCompatActivity {
     private static final int PROJECTION_PERMISSION = 2;
     private static final int UPDATE_PERMISSION = 3;
 
+    Configuration configuration;
+
     Activity activity = null;
     Intent intent = null;
     Button start_service = null;
     Button stop_service = null;
-    ProgressBar loading_bar = null;
-    CheckBox lang_checkBox = null;
+    RadioButton rbt_jp, rbt_ko, rbt_en;
+    RadioGroup rbt_group;
 
-    boolean inKorean = false;
+    int rbt_val;
+
 
     AppUpdateManager appUpdateManager;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        configuration = getResources().getConfiguration();
         activity = this;
         setContentView(R.layout.activity_main);
         start_service = findViewById(R.id.start_service);
@@ -75,8 +82,29 @@ public class MainActivity extends AppCompatActivity {
                 stop_service.setEnabled(true);
             }
         });
-        lang_checkBox = findViewById(R.id.in_korean);
-        loading_bar = findViewById(R.id.loading_bar);
+
+        rbt_jp = findViewById(R.id.jp);
+        rbt_ko = findViewById(R.id.ko);
+        rbt_en = findViewById(R.id.en);
+
+        rbt_group = findViewById(R.id.languages);
+
+        rbt_group.setOnCheckedChangeListener(new RadioGroup.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(RadioGroup group, int checkedId) {
+                switch (checkedId) {
+                    case R.id.jp:
+                        rbt_val = 0;
+                        break;
+                    case R.id.ko:
+                        rbt_val = 1;
+                        break;
+                    case R.id.en:
+                        rbt_val = 2;
+                        break;
+                }
+            }
+        });
 
         appUpdateManager = AppUpdateManagerFactory.create(getApplicationContext());
 
@@ -91,6 +119,8 @@ public class MainActivity extends AppCompatActivity {
                 requestUpdate(appUpdateInfo);
             }
         });
+
+        setNightMode();
 
     }
 
@@ -110,11 +140,10 @@ public class MainActivity extends AppCompatActivity {
         switch(requestCode){
             case PROJECTION_PERMISSION:
                 if (resultCode == RESULT_OK) {
-                    inKorean = lang_checkBox.isChecked();
                     intent = new Intent(this, MalddalService.class)
                             .putExtra(MalddalService.EXTRA_RESULT_CODE, resultCode)
                             .putExtra(MalddalService.EXTRA_RESULT_INTENT, data)
-                            .putExtra(MalddalService.EXTRA_IN_KOREAN, inKorean)
+                            .putExtra(MalddalService.EXTRA_DATA_LANG, rbt_val)
                             .putExtra(MalddalService.EXTRA_PARENT_INTENT, getIntent());
                     startService(intent);
                 }
@@ -148,7 +177,11 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         });
+    }
 
+    public void onConfigurationChanged(Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+        setNightMode();
     }
 
     public boolean checkOverlayPermission(){
@@ -178,6 +211,22 @@ public class MainActivity extends AppCompatActivity {
         }
         catch (Exception e) {
             e.printStackTrace();
+        }
+    }
+
+    public void setNightMode() {
+        int currentNightMode = configuration.uiMode & Configuration.UI_MODE_NIGHT_MASK;
+        switch (currentNightMode) {
+            case Configuration.UI_MODE_NIGHT_NO:
+                findViewById(R.id.languages).setBackground(
+                        getResources().getDrawable(R.drawable.rounded_background_white,
+                                null));
+                break;
+            case Configuration.UI_MODE_NIGHT_YES:
+                findViewById(R.id.languages).setBackground(
+                        getResources().getDrawable(R.drawable.rounded_background_black,
+                                null));
+                break;
         }
     }
 

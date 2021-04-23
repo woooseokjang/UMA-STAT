@@ -72,18 +72,21 @@ public class MalddalService extends Service {
     View view;
     Configuration configuration;
 
+    static final int DATA_JP = 0;
+    static final int DATA_KO = 1;
+    static final int DATA_EN = 2;
+
     static final String EXTRA_RESULT_CODE = "resultCode";
     static final String EXTRA_RESULT_INTENT = "resultIntent";
-    static final String EXTRA_IN_KOREAN = "inKorean";
+    static final String EXTRA_DATA_LANG = "dataLang";
     static final String EXTRA_PARENT_INTENT = "parentIntent";
     private int resultCode;
     private Intent resultData;
-    private boolean inKorean;
+    private int dataLang;
     private Intent parentIntent;
 
     Button search_button = null;
     Button move_service_button = null;
-    Button return_service_button = null;
     ArrayList<TextView> scripts = null;
     ArrayList<TextView> specs = null;
     boolean event_visibility = false;
@@ -196,20 +199,7 @@ public class MalddalService extends Service {
                 return false;
             }
         });
-        return_service_button = view.findViewById(R.id.return_button);
-        return_service_button.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if (System.currentTimeMillis() > button_click_int + 500) {
-                    button_click_int = System.currentTimeMillis();
-                    return;
-                } else if (System.currentTimeMillis() <= button_click_int + 500) {
-                    startActivity(parentIntent);
-                }
-            }
-        });
         event_loading = view.findViewById(R.id.event_loading);
-
         setNightMode();
     }
 
@@ -226,7 +216,7 @@ public class MalddalService extends Service {
         if (intent.getAction() == null) {
             resultCode = intent.getIntExtra(EXTRA_RESULT_CODE, 1337);
             resultData = intent.getParcelableExtra(EXTRA_RESULT_INTENT);
-            inKorean = intent.getBooleanExtra(EXTRA_IN_KOREAN, false);
+            dataLang = intent.getIntExtra(EXTRA_DATA_LANG, 0);
             parentIntent = intent.getParcelableExtra(EXTRA_PARENT_INTENT);
 
             String dir = getFilesDir() + "/umapyoi";
@@ -322,10 +312,12 @@ public class MalddalService extends Service {
     }
 
     public ArrayList<String> OCR(Bitmap bitmap) {
+
         Bitmap bitmap2 = Bitmap.createBitmap(bitmap,
-                (int)(bitmap.getWidth()*0.1), (int)(bitmap.getHeight()*0.53),
-                (int)(bitmap.getWidth()*0.8), (int)(bitmap.getHeight()*0.16));
+                (int)(bitmap.getWidth()*0.1), (int)(bitmap.getHeight()*0.3),
+                (int)(bitmap.getWidth()*0.8), (int)(bitmap.getHeight()*0.4));
         //saveBitmapToJpeg(bitmap2, "test");
+
         tessBaseAPI.setImage(bitmap2);
         String OCRResult = tessBaseAPI.getUTF8Text();
         OCRResult = OCRResult.replaceAll(" ", "");
@@ -339,10 +331,16 @@ public class MalddalService extends Service {
         try {
             AssetManager assetMgr = this.getAssets();
             InputStream is;
-            if (inKorean) {
-                is = assetMgr.open("xls/character_script_spec_ko.xls");
-            } else {
-                is = assetMgr.open("xls/character_script_spec.xls");
+            switch (dataLang) {
+                case DATA_KO:
+                    is = assetMgr.open("xls/character_script_spec_ko.xls");
+                    break;
+                case DATA_EN:
+                    is = assetMgr.open("xls/character_script_spec_en.xls");
+                    break;
+                default:
+                    is = assetMgr.open("xls/character_script_spec.xls");
+                    break;
             }
             Workbook wb = Workbook.getWorkbook(is);
             if(wb != null){
@@ -402,7 +400,17 @@ public class MalddalService extends Service {
         skillAndSpecs = new ArrayList<SkillAndSpecs>();
         try {
             AssetManager assetMgr = this.getAssets();
-            InputStream is = assetMgr.open("xls/skill_spec.xls");
+            InputStream is;
+            switch (dataLang) {
+                case DATA_KO:
+                    is = assetMgr.open("xls/skill_spec_ko.xls");
+                    break;
+                case DATA_EN:
+                    is = assetMgr.open("xls/skill_spec_en.xls");
+                    break;
+                default:
+                    is = assetMgr.open("xls/skill_spec.xls");
+            }
             Workbook wb = Workbook.getWorkbook(is);
             if(wb != null){
                 Sheet sheet = wb.getSheet(0);
