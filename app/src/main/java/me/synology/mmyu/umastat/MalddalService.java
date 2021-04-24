@@ -1,5 +1,6 @@
 package me.synology.mmyu.umastat;
 
+import android.annotation.SuppressLint;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
@@ -31,11 +32,15 @@ import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.widget.BaseAdapter;
 import android.widget.Button;
+import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.constraintlayout.widget.ConstraintLayout;
 import androidx.core.app.NotificationCompat;
+import androidx.transition.Slide;
+import androidx.transition.Transition;
 
 import com.googlecode.tesseract.android.TessBaseAPI;
 
@@ -85,12 +90,10 @@ public class MalddalService extends Service {
     private int dataLang;
     private Intent parentIntent;
 
-    Button search_button = null;
-    Button move_service_button = null;
+    ImageView search_button;
     ArrayList<TextView> scripts = null;
     ArrayList<TextView> specs = null;
     boolean event_visibility = false;
-    ProgressBar event_loading = null;
 
     private static final String CHANNEL_MALDDAL = "channel_malddal";
     private static final int NOTIFY_ID = 9999;
@@ -98,6 +101,8 @@ public class MalddalService extends Service {
     long button_click_int = 0;
 
     static final String ACTION_SHUTDOWN = BuildConfig.APPLICATION_ID + ".SHUTDOWN";
+
+    ConstraintLayout service_cl;
 
 
 
@@ -110,9 +115,11 @@ public class MalddalService extends Service {
         throw new UnsupportedOperationException("Not yet implemented");
     }
 
+    @SuppressLint("ClickableViewAccessibility")
     @Override
     public void onCreate() {
         super.onCreate();
+
         configuration = getResources().getConfiguration();
         if (mediaProjectionManager == null)
             mediaProjectionManager = (MediaProjectionManager) getSystemService(MEDIA_PROJECTION_SERVICE);
@@ -129,9 +136,50 @@ public class MalddalService extends Service {
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
                 PixelFormat.TRANSLUCENT
         );
-        params.gravity = Gravity.TOP | Gravity.LEFT;
 
         windowManager.addView(view, params);
+
+        service_cl = view.findViewById(R.id.service_cl);
+        service_cl.setOnTouchListener(new View.OnTouchListener() {
+            boolean moved = false;
+            float downRawX, downRawY, dX, dY;
+            final static float CLICK_DRAG_TOLERANCE = 10;
+            @Override
+            public boolean onTouch(View v, MotionEvent event) {
+                switch(event.getAction()) {
+                    case MotionEvent.ACTION_DOWN:
+                        downRawX = event.getRawX();
+                        downRawY = event.getRawY();
+                        dX = params.x - downRawX;
+                        dY = params.y - downRawY;
+                        return true;
+                    case MotionEvent.ACTION_MOVE:
+                        moved = true;
+
+                        float newX = event.getRawX() + dX;
+                        float newY = event.getRawY() + dY;
+
+                        params.x = (int)newX;
+                        params.y = (int)newY;
+                        windowManager.updateViewLayout(view, params);
+                        return true;
+                    case MotionEvent.ACTION_UP:
+                        float upRawX = event.getRawX();
+                        float upRawY = event.getRawY();
+
+                        float upDX = upRawX - downRawX;
+                        float upDY = upRawY - downRawY;
+
+                        if (Math.abs(upDX) < CLICK_DRAG_TOLERANCE && Math.abs(upDY) < CLICK_DRAG_TOLERANCE) {
+                            return false;
+                        }
+                        break;
+                }
+                return false;
+            }
+        });
+
+
         scripts = new ArrayList<TextView>();
         scripts.add(view.findViewById(R.id.script1));
         scripts.add(view.findViewById(R.id.script2));
@@ -144,6 +192,8 @@ public class MalddalService extends Service {
         specs.add(view.findViewById(R.id.spec3));
         specs.add(view.findViewById(R.id.spec4));
         specs.add(view.findViewById(R.id.spec5));
+
+
 
         for(int i = 0; i < 5; i++) {
             specs.get(i).setOnClickListener(new specsListOnClickListener(specs.get(i)) {
@@ -166,40 +216,55 @@ public class MalddalService extends Service {
         }
 
         search_button = view.findViewById(R.id.search_button);
-        search_button.setOnClickListener(new View.OnClickListener(){
-            @Override
-            public void onClick(View v) {
-                if (!event_visibility) {
-                    event_visibility = true;
-                    search_button.setText("찾는중");
-                    startCapture();
-                    search_button.setText("숨기기");
-                }
-                else {
-                    event_visibility = false;
-                    search_button.setText("이벤트 읽기");
-                    for (int i = 0; i < 5; i++) {
-                        scripts.get(i).setVisibility(View.GONE);
-                        specs.get(i).setVisibility(View.GONE);
-                    }
-                }
-            }
-        });
-        move_service_button = view.findViewById(R.id.move_button);
-        move_service_button.setOnTouchListener(new View.OnTouchListener() {
+        search_button.setOnTouchListener(new View.OnTouchListener() {
+            boolean moved = false;
+            float downRawX, downRawY, dX, dY;
+            final static float CLICK_DRAG_TOLERANCE = 10;
             @Override
             public boolean onTouch(View v, MotionEvent event) {
-                if (event.getAction() == MotionEvent.ACTION_MOVE){
+                switch(event.getAction()) {
+                    case MotionEvent.ACTION_DOWN:
+                        downRawX = event.getRawX();
+                        downRawY = event.getRawY();
+                        dX = params.x - downRawX;
+                        dY = params.y - downRawY;
+                        return true;
+                    case MotionEvent.ACTION_MOVE:
+                        moved = true;
 
-                    Point point = getPointOfView(view);
-                    params.x = (int) event.getRawX() - view.getWidth()/2;
-                    params.y = (int) event.getRawY() - view.getHeight()/2;
-                    windowManager.updateViewLayout(view, params);
+                        float newX = event.getRawX() + dX;
+                        float newY = event.getRawY() + dY;
+
+                        params.x = (int)newX;
+                        params.y = (int)newY;
+                        windowManager.updateViewLayout(view, params);
+                        return true;
+                    case MotionEvent.ACTION_UP:
+                        float upRawX = event.getRawX();
+                        float upRawY = event.getRawY();
+
+                        float upDX = upRawX - downRawX;
+                        float upDY = upRawY - downRawY;
+
+                        if (Math.abs(upDX) < CLICK_DRAG_TOLERANCE && Math.abs(upDY) < CLICK_DRAG_TOLERANCE) {
+                            if (!event_visibility) {
+                                event_visibility = true;
+                                startCapture();
+                            }
+                            else {
+                                event_visibility = false;
+                                for (int i = 0; i < 5; i++) {
+                                    scripts.get(i).setVisibility(View.GONE);
+                                    specs.get(i).setVisibility(View.GONE);
+                                }
+                            }
+                            return true;
+                        }
+                        break;
                 }
                 return false;
             }
         });
-        event_loading = view.findViewById(R.id.event_loading);
         setNightMode();
     }
 
@@ -456,7 +521,6 @@ public class MalddalService extends Service {
     }
 
     private void startCapture() {
-        event_loading.setVisibility(View.VISIBLE);
         if (mediaProjection == null) {
             mediaProjection = mediaProjectionManager.getMediaProjection(resultCode, resultData);
         }
@@ -565,7 +629,6 @@ public class MalddalService extends Service {
                 }
             }
         }, handler);
-        event_loading.setVisibility(View.GONE);
     }
 
     public int leven(String aText, String bText) {

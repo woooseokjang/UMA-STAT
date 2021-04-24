@@ -1,6 +1,6 @@
 <resources>
     <string name="app_name">UMAPYOI master</string>
-    <string name="notify_shutdown">서비스 정지</string>
-    <string name="service_running">서비스가 실행중입니다.</string>
+    <string name="notify_shutdown">STOP SERVICE</string>
+    <string name="service_running">SERVICE IS NOW RUNNING</string>
     <string name="loading">Loading...</string>
 </resources>

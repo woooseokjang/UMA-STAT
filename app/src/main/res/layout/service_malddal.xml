@@ -136,40 +136,16 @@
         app:layout_constraintBottom_toTopOf="@id/search_button"
         app:layout_constraintLeft_toLeftOf="parent"/>
 
-    <ProgressBar
-        android:id="@+id/event_loading"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:visibility="gone"
-        app:layout_constraintTop_toBottomOf="@+id/spec5"
-        app:layout_constraintLeft_toLeftOf="parent"
-        app:layout_constraintRight_toRightOf="parent"
-        app:layout_constraintBottom_toTopOf="@id/move_button"/>
-
-    <Button
+    <ImageView
         android:id="@+id/search_button"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="READ"
-        android:layout_marginLeft="10sp"
-        android:layout_marginRight="5sp"
-        app:layout_constraintHorizontal_chainStyle="packed"
-        app:layout_constraintTop_toBottomOf="@id/event_loading"
+        android:layout_width="55dp"
+        android:layout_height="55dp"
+        android:src="@mipmap/ic_launcher"
+        app:layout_constraintTop_toBottomOf="@id/spec5"
         app:layout_constraintLeft_toLeftOf="parent"
-        app:layout_constraintRight_toLeftOf="@id/move_button"
-        app:layout_constraintBottom_toBottomOf="parent"/>
-
-    <Button
-        android:id="@+id/move_button"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="MOVE"
-        android:layout_marginRight="10sp"
-        app:layout_constraintHorizontal_chainStyle="packed"
-        app:layout_constraintTop_toBottomOf="@id/event_loading"
-        app:layout_constraintLeft_toRightOf="@id/search_button"
         app:layout_constraintRight_toRightOf="parent"
         app:layout_constraintBottom_toBottomOf="parent"/>
+
 
 
 
