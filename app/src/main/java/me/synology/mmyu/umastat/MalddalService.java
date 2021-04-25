@@ -24,28 +24,22 @@ import android.os.IBinder;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.Display;
-import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.widget.BaseAdapter;
-import android.widget.Button;
 import android.widget.ImageView;
-import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.constraintlayout.widget.ConstraintLayout;
 import androidx.core.app.NotificationCompat;
-import androidx.transition.Slide;
-import androidx.transition.Transition;
 
 import com.googlecode.tesseract.android.TessBaseAPI;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -75,7 +69,10 @@ public class MalddalService extends Service {
     MediaProjectionManager mediaProjectionManager = null;
     WindowManager windowManager;
     View view;
+    View view2;
     Configuration configuration;
+
+    boolean view2_displaying = false;
 
     static final int DATA_JP = 0;
     static final int DATA_KO = 1;
@@ -90,6 +87,7 @@ public class MalddalService extends Service {
     private int dataLang;
     private Intent parentIntent;
 
+    ImageView stop_button;
     ImageView search_button;
     ArrayList<TextView> scripts = null;
     ArrayList<TextView> specs = null;
@@ -139,6 +137,17 @@ public class MalddalService extends Service {
 
         windowManager.addView(view, params);
 
+        LayoutInflater layoutInflater2 = (LayoutInflater) getSystemService(Context.LAYOUT_INFLATER_SERVICE);
+        view2 = layoutInflater2.inflate(R.layout.delete_layout, null);
+        WindowManager.LayoutParams params2 = new WindowManager.LayoutParams(
+                WindowManager.LayoutParams.MATCH_PARENT,
+                WindowManager.LayoutParams.MATCH_PARENT,
+                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+                PixelFormat.TRANSLUCENT
+        );
+
+
         service_cl = view.findViewById(R.id.service_cl);
         service_cl.setOnTouchListener(new View.OnTouchListener() {
             boolean moved = false;
@@ -150,8 +159,8 @@ public class MalddalService extends Service {
                     case MotionEvent.ACTION_DOWN:
                         downRawX = event.getRawX();
                         downRawY = event.getRawY();
-                        dX = params.x - downRawX;
-                        dY = params.y - downRawY;
+                        dX = view.getX() - downRawX;
+                        dY = view.getY() - downRawY;
                         return true;
                     case MotionEvent.ACTION_MOVE:
                         moved = true;
@@ -159,8 +168,8 @@ public class MalddalService extends Service {
                         float newX = event.getRawX() + dX;
                         float newY = event.getRawY() + dY;
 
-                        params.x = (int)newX;
-                        params.y = (int)newY;
+                        //params.x = (int)newX;
+                        //params.y = (int)newY;
                         windowManager.updateViewLayout(view, params);
                         return true;
                     case MotionEvent.ACTION_UP:
@@ -214,6 +223,7 @@ public class MalddalService extends Service {
                 }
             });
         }
+        stop_button = view2.findViewById(R.id.stop_service);
 
         search_button = view.findViewById(R.id.search_button);
         search_button.setOnTouchListener(new View.OnTouchListener() {
@@ -222,6 +232,16 @@ public class MalddalService extends Service {
             final static float CLICK_DRAG_TOLERANCE = 10;
             @Override
             public boolean onTouch(View v, MotionEvent event) {
+
+                float stop_locX = stop_button.getX();
+                float stop_locY = stop_button.getY();
+                int stop_width = stop_button.getWidth() + (int)stop_locX;
+                int stop_height = stop_button.getHeight() + (int)stop_locY;
+                float upRawX;
+                float upRawY;
+                float upDX;
+                float upDY;
+
                 switch(event.getAction()) {
                     case MotionEvent.ACTION_DOWN:
                         downRawX = event.getRawX();
@@ -231,20 +251,37 @@ public class MalddalService extends Service {
                         return true;
                     case MotionEvent.ACTION_MOVE:
                         moved = true;
-
                         float newX = event.getRawX() + dX;
                         float newY = event.getRawY() + dY;
-
                         params.x = (int)newX;
                         params.y = (int)newY;
+                        upRawX = event.getRawX();
+                        upRawY = event.getRawY();
+
+                        upDX = upRawX - downRawX;
+                        upDY = upRawY - downRawY;
+
+                        if (Math.abs(upDX) < CLICK_DRAG_TOLERANCE && Math.abs(upDY) < CLICK_DRAG_TOLERANCE) {
+                            if (!view2_displaying) {
+                                view2_displaying = true;
+                                windowManager.addView(view2, params2);
+                            }
+                        }
+
+                        if (((stop_locX <= event.getRawX()) && (event.getRawX() < stop_width)) &&
+                                ((stop_locY <= event.getRawY() - 80) && (event.getRawY() - 80 < stop_height))) {
+                            stop_button.setImageResource(R.drawable.remove_red);
+                        } else {
+                            stop_button.setImageResource(R.drawable.remove_black);
+                        }
                         windowManager.updateViewLayout(view, params);
                         return true;
                     case MotionEvent.ACTION_UP:
-                        float upRawX = event.getRawX();
-                        float upRawY = event.getRawY();
+                        upRawX = event.getRawX();
+                        upRawY = event.getRawY();
 
-                        float upDX = upRawX - downRawX;
-                        float upDY = upRawY - downRawY;
+                        upDX = upRawX - downRawX;
+                        upDY = upRawY - downRawY;
 
                         if (Math.abs(upDX) < CLICK_DRAG_TOLERANCE && Math.abs(upDY) < CLICK_DRAG_TOLERANCE) {
                             if (!event_visibility) {
@@ -258,9 +295,20 @@ public class MalddalService extends Service {
                                     specs.get(i).setVisibility(View.GONE);
                                 }
                             }
-                            return true;
                         }
-                        break;
+
+                        Log.i("touch", "X : " + stop_locX + " Y : " + stop_locY);
+                        Log.i("touch", "width : " + stop_width + " height : " + stop_height);
+                        Log.i("touch", "locX : " + event.getRawX() + " locY : " + event.getRawY());
+                        if (((stop_locX <= event.getRawX()) && (event.getRawX() < stop_width)) &&
+                                ((stop_locY <= event.getRawY() - 80) && (event.getRawY() - 80 < stop_height))) {
+                            stopSelf();
+                        }
+                        if(view2_displaying){
+                            view2_displaying = false;
+                            windowManager.removeView(view2);
+                        }
+                        return true;
                 }
                 return false;
             }
@@ -272,6 +320,7 @@ public class MalddalService extends Service {
     public void onDestroy() {
         if(windowManager != null){
             if(view != null) windowManager.removeView(view);
+            Toast.makeText(getApplicationContext(), "SERVICE STOPPED", Toast.LENGTH_LONG).show();
         }
         super.onDestroy();
     }
@@ -540,7 +589,7 @@ public class MalddalService extends Service {
         final int mHeight = size.y;
         int mDensity = metrics.densityDpi;
 
-        final ImageReader mImageReader = ImageReader.newInstance(mWidth, mHeight, PixelFormat.RGBA_8888, 2);
+        @SuppressLint("WrongConstant") final ImageReader mImageReader = ImageReader.newInstance(mWidth, mHeight, PixelFormat.RGBA_8888, 2);
 
         final Handler handler = new Handler();
 
@@ -758,4 +807,6 @@ public class MalddalService extends Service {
             Log.e("MyTag", "IOException : " + e.getMessage());
         }
     }
+
+
 }

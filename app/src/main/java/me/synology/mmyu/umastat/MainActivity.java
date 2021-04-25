@@ -73,7 +73,6 @@ public class MainActivity extends AppCompatActivity {
                 if (intent != null){
                     stopService(intent);
                     intent = null;
-                    Toast.makeText(getApplicationContext(), "SERVICE STOPPED", Toast.LENGTH_LONG).show();
                 }
                 else{
                     Toast.makeText(getApplicationContext(), "NO SERVICE RUNNING", Toast.LENGTH_LONG).show();
