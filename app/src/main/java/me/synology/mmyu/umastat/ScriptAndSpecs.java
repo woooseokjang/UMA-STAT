@@ -6,15 +6,17 @@ public class ScriptAndSpecs {
     private String spec;
     private int iter;
     private int iter2;
+    private String char_name;
 
     public ScriptAndSpecs(){}
 
-    public ScriptAndSpecs(int id, String script, String spec, int iter, int iter2){
+    public ScriptAndSpecs(int id, String script, String spec, int iter, int iter2, String char_name){
         this.id = id;
         this.script = script;
         this.spec = spec;
         this.iter = iter;
         this.iter2 = iter2;
+        this.char_name = char_name;
     }
 
     public void setId(int id) {
@@ -55,5 +57,13 @@ public class ScriptAndSpecs {
 
     public int getIter2() {
         return iter2;
+    }
+
+    public String getChar_name() {
+        return char_name;
+    }
+
+    public void setChar_name(String char_name) {
+        this.char_name = char_name;
     }
 }

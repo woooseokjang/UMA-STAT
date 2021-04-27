@@ -485,6 +485,9 @@ public class MalddalService extends Service {
                                 case 4:
                                     temp.setIter2(Integer.parseInt(contents));
                                     break;
+                                case 5:
+                                    temp.setChar_name(contents);
+                                    break;
                             }
                         }
                         scriptAndSpecs.add(temp);
