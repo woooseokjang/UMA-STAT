@@ -6,6 +6,8 @@ import androidx.appcompat.app.AppCompatActivity;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
 import android.content.res.Configuration;
 import android.media.projection.MediaProjectionManager;
 import android.net.Uri;
@@ -27,6 +29,8 @@ import com.google.android.play.core.appupdate.AppUpdateManagerFactory;
 import com.google.android.play.core.install.model.AppUpdateType;
 import com.google.android.play.core.install.model.UpdateAvailability;
 import com.google.android.play.core.tasks.Task;
+
+import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
     private static final int OVERLAY_PERMISSION = 1;
@@ -228,5 +232,7 @@ public class MainActivity extends AppCompatActivity {
                 break;
         }
     }
+
+
 
 }
