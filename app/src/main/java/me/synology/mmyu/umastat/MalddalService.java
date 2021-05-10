@@ -130,11 +130,19 @@ public class MalddalService extends Service {
         Toast.makeText(this, "SERVICE NOW RUNNING...", Toast.LENGTH_LONG).show();
 
         LayoutInflater layoutInflater = (LayoutInflater) getSystemService(Context.LAYOUT_INFLATER_SERVICE);
+
+        int LAYOUT_FLAG;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            LAYOUT_FLAG = WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY;
+        } else {
+            LAYOUT_FLAG = WindowManager.LayoutParams.TYPE_PHONE;
+        }
+
         view = layoutInflater.inflate(R.layout.service_malddal, null);
         WindowManager.LayoutParams params = new WindowManager.LayoutParams(
                 WindowManager.LayoutParams.WRAP_CONTENT,
                 WindowManager.LayoutParams.WRAP_CONTENT,
-                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+                LAYOUT_FLAG,
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
                 PixelFormat.TRANSLUCENT
         );
@@ -146,11 +154,10 @@ public class MalddalService extends Service {
         WindowManager.LayoutParams params2 = new WindowManager.LayoutParams(
                 WindowManager.LayoutParams.MATCH_PARENT,
                 WindowManager.LayoutParams.MATCH_PARENT,
-                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+                LAYOUT_FLAG,
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
                 PixelFormat.TRANSLUCENT
         );
-
 
         service_cl = view.findViewById(R.id.service_cl);
         service_cl.setOnTouchListener(new View.OnTouchListener() {
@@ -327,10 +334,15 @@ public class MalddalService extends Service {
             startActivity(i);
         }
         catch (Exception e){
-            String url = "market://details?id=" + packageName;
-            Intent i = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
-            i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            startActivity(i);
+            try {
+                String url = "market://details?id=" + packageName;
+                Intent i = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                startActivity(i);
+            }
+            catch (Exception e2) {
+                Toast.makeText(getApplicationContext(), "There is no PlayStore either Game", Toast.LENGTH_LONG).show();
+            }
         }
     }
 

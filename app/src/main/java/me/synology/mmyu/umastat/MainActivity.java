@@ -200,7 +200,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void startService() {
-        if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             MediaProjectionManager projectionManager =
                     (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
             startActivityForResult(projectionManager.createScreenCaptureIntent(),
