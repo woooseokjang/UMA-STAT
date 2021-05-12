@@ -634,80 +634,95 @@ public class MalddalService extends Service {
                 reader.setOnImageAvailableListener(null, handler);
 
                 Image image = reader.acquireLatestImage();
+                if (image != null) {
+                    Image.Plane[] planes = image.getPlanes();
+                    if (planes[0].getBuffer() == null) {
+                        reader.close();
+                        mediaProjection.stop();
+                        mediaProjection = null;
+                        return;
+                    }
+                    ByteBuffer buffer = planes[0].getBuffer();
 
-                final Image.Plane[] planes = image.getPlanes();
-                final ByteBuffer buffer = planes[0].getBuffer();
+                    int pixelStride = planes[0].getPixelStride();
+                    int rowStride = planes[0].getRowStride();
+                    int rowPadding = rowStride - pixelStride * metrics.widthPixels;
+                    // create bitmap
+                    Bitmap bmp = Bitmap.createBitmap(metrics.widthPixels + (int) ((float) rowPadding / (float) pixelStride), metrics.heightPixels, Bitmap.Config.ARGB_8888);
+                    bmp.copyPixelsFromBuffer(buffer);
 
-                int pixelStride = planes[0].getPixelStride();
-                int rowStride = planes[0].getRowStride();
-                int rowPadding = rowStride - pixelStride * metrics.widthPixels;
-                // create bitmap
-                Bitmap bmp = Bitmap.createBitmap(metrics.widthPixels + (int) ((float) rowPadding / (float) pixelStride), metrics.heightPixels, Bitmap.Config.ARGB_8888);
-                bmp.copyPixelsFromBuffer(buffer);
+                    image.close();
+                    reader.close();
+                    mediaProjection.stop();
+                    mediaProjection = null;
 
-                image.close();
-                reader.close();
-                mediaProjection.stop();
-                mediaProjection = null;
+                    Bitmap realSizeBitmap = Bitmap.createBitmap(bmp, 0, 0, metrics.widthPixels, bmp.getHeight());
+                    bmp.recycle();
 
-                Bitmap realSizeBitmap = Bitmap.createBitmap(bmp, 0, 0, metrics.widthPixels, bmp.getHeight());
-                bmp.recycle();
-
-                ArrayList<String> data = OCR(realSizeBitmap);
-                int index = 0;
-                int min = 99999;
-                boolean found = false;
-                for (int i = 0; i < data.size(); i++) {
-                    if(found) break;
-                    if (data.get(i).length() >= 3) {
-                        String sc = data.get(i).replace("/", "！");
-                        sc = sc.replace("7", "！");
-                        for (int j = 0; j < scriptAndSpecs.size(); j++) {
-                            if (found) break;
-                            int leven_dist = leven(scriptdata.get(j), sc);
-                            if (leven_dist < min) {
-                                if (leven_dist != scriptdata.get(j).length()) {
-                                    if (Math.abs(sc.length() - scriptdata.get(j).length()) <= 3) {
-                                        index = j;
-                                        min = leven_dist;
-                                        if (min == 0) {
-                                            found = true;
+                    ArrayList<String> data = OCR(realSizeBitmap);
+                    realSizeBitmap.recycle();
+                    int index = 0;
+                    int min = 99999;
+                    boolean found = false;
+                    for (int i = 0; i < data.size(); i++) {
+                        if(found) break;
+                        if (data.get(i).length() >= 3) {
+                            String sc = data.get(i).replace("/", "！");
+                            sc = sc.replace("7", "！");
+                            for (int j = 0; j < scriptAndSpecs.size(); j++) {
+                                if (found) break;
+                                int leven_dist = leven(scriptdata.get(j), sc);
+                                if (leven_dist < min) {
+                                    if (leven_dist != scriptdata.get(j).length()) {
+                                        if (Math.abs(sc.length() - scriptdata.get(j).length()) <= 3) {
+                                            index = j;
+                                            min = leven_dist;
+                                            if (min == 0) {
+                                                found = true;
+                                            }
                                         }
                                     }
                                 }
                             }
+                            Log.i("data", "data index -> " + index);
+                            Log.i("data", "reven min -> " + min);
+                            Log.i("data", sc);
                         }
-                        Log.i("data", "data index -> " + index);
-                        Log.i("data", "reven min -> " + min);
-                        Log.i("data", sc);
                     }
-                }
-                ArrayList<String> scriptForPrint = new ArrayList<String>();
-                ArrayList<String> specsForPrint = new ArrayList<String>();
-                while(iter2.get(index) != 1) {
-                    index = index - 1;
-                }
+                    ArrayList<String> scriptForPrint = new ArrayList<String>();
+                    ArrayList<String> specsForPrint = new ArrayList<String>();
+                    while(iter2.get(index) != 1) {
+                        index = index - 1;
+                    }
 
-                scriptForPrint.add(scriptdata.get(index));
-                specsForPrint.add(specdata.get(index));
-                index = index + 1;
-                while (iter2.get(index) != 1){
                     scriptForPrint.add(scriptdata.get(index));
                     specsForPrint.add(specdata.get(index));
                     index = index + 1;
-                }
-                for(int i = 0; i < 5; i++) {
-                    if (scriptForPrint.size() > i) {
-                        scripts.get(i).setVisibility(View.VISIBLE);
-                        scripts.get(i).setText(scriptForPrint.get(i));
-                        specs.get(i).setVisibility(View.VISIBLE);
-                        specs.get(i).setText(specsForPrint.get(i).replace("&", "\n"));
-                    } else {
-                        scripts.get(i).setText("N/A");
-                        scripts.get(i).setVisibility(View.GONE);
-                        specs.get(i).setText("N/A");
-                        specs.get(i).setVisibility(View.GONE);
+                    while (iter2.get(index) != 1){
+                        scriptForPrint.add(scriptdata.get(index));
+                        specsForPrint.add(specdata.get(index));
+                        index = index + 1;
                     }
+                    for(int i = 0; i < 5; i++) {
+                        if (scriptForPrint.size() > i) {
+                            scripts.get(i).setVisibility(View.VISIBLE);
+                            scripts.get(i).setText(scriptForPrint.get(i));
+                            specs.get(i).setVisibility(View.VISIBLE);
+                            specs.get(i).setText(specsForPrint.get(i).replace("&", "\n"));
+                        } else {
+                            scripts.get(i).setText("N/A");
+                            scripts.get(i).setVisibility(View.GONE);
+                            specs.get(i).setText("N/A");
+                            specs.get(i).setVisibility(View.GONE);
+                        }
+                    }
+                }
+                else {
+                    Toast.makeText(getApplicationContext(), "ERR occurred PLZ RETRY", Toast.LENGTH_LONG).show();
+                    image.close();
+                    reader.close();
+                    mediaProjection.stop();
+                    mediaProjection = null;
                 }
             }
         }, handler);
