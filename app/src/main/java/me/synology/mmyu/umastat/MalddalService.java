@@ -634,7 +634,7 @@ public class MalddalService extends Service {
                 reader.setOnImageAvailableListener(null, handler);
 
                 Image image = reader.acquireLatestImage();
-                if (image != null) {
+                if ((image != null) && (mediaProjection != null)) {
                     Image.Plane[] planes = image.getPlanes();
                     if (planes[0].getBuffer() == null) {
                         reader.close();
@@ -721,7 +721,12 @@ public class MalddalService extends Service {
                     Toast.makeText(getApplicationContext(), "ERR occurred PLZ RETRY", Toast.LENGTH_LONG).show();
                     image.close();
                     reader.close();
-                    mediaProjection.stop();
+                    try{
+                        mediaProjection.stop();
+                    }
+                    catch(Exception e){
+                        Toast.makeText(getApplicationContext(), "ERR plz retry", Toast.LENGTH_LONG).show();
+                    }
                     mediaProjection = null;
                 }
             }

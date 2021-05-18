@@ -10,8 +10,8 @@ android {
         applicationId "me.synology.mmyu.umastat"
         minSdkVersion 24
         targetSdkVersion 30
-        versionCode 23
-        versionName "1.2.3"
+        versionCode 26
+        versionName "1.2.6"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
